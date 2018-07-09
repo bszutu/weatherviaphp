@@ -3,6 +3,7 @@ import os
 import time
 import json
 import datetime
+import urllib
 
 # do not forget to setup the cron-job in order to make this process automated.
 # Required data from Weather Underground
@@ -44,43 +45,53 @@ if psw:
 	# print (wuData)
 	data = json.loads(wuData)
 	
-	
+	utctime = datetime.datetime.utcnow()
+	#print(utctime)
+
 	if data['current_observation']:
 		print (data['current_observation']['observation_epoch'])
 
 		# date = datetime('@' + data['current_observation']['observation_epoch'])
 		# print date.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(data['current_observation']['observation_epoch']))
 		
-		delta = datetime.datetime.now() - int(data['current_observation']['observation_epoch'])
+		delta = time.time() - int(data['current_observation']['observation_epoch'])
+		print('time delta is ' + str(delta))
 		
 		if(delta > 2000): # to get rid of old data spikes
 			
 			echo('The data from ' + delta + ' seconds ago was too old for trasfer, will retry on next attempt')
 			
 		else:
-			url = 'http://www.pwsweather.com/pwsupdate/pwsupdate.php?ID=' + pwsID + '&PASSWORD=' + urlencode(psw) #+ '&dateutc=' + date->format('Y-m-d+H:i:s')
-			if (data['current_observation']['wind_degrees']) >= 0: 
-				url = url + '&winddir=' + data['current_observation']['wind_degrees'] 
-			if (data['current_observation']['wind_mph']) >= 0:
-				url = url + '&windspeedmph=' + data['current_observation']['wind_mph'] 
-			if (data['current_observation']['wind_gust_mph']) >= 0:
-				url = url + "&windgustmph=". data['current_observation']['wind_gust_mph']
+			dict_name_value_pair = {
+				"ID" : pwsID,
+				"PASSWORD" : psw,
+				"softwaretype" : "ebviaphpV0.3",
+				"action" : "updateraw",
+				"dateutc" : str(utctime)[: 19],
+			}
+			if float(data['current_observation']['wind_degrees']) >= 0: 
+				dict_name_value_pair["winddir"] = data['current_observation']['wind_degrees'] 
+			if float(data['current_observation']['wind_mph']) >= 0:
+				dict_name_value_pair["windspeedmph"] = data['current_observation']['wind_mph'] 
+			if float(data['current_observation']['wind_gust_mph']) >= 0:
+				dict_name_value_pair["windgustmph"] =  data['current_observation']['wind_gust_mph']
 			# I would be impressed if anyone recorded temperatures close to absolute zero.
-			if (data['current_observation']['temp_f']) > -459:
-				url = url + '&tempf=' + data['current_observation']['temp_f'] 
-			if (data['current_observation']['precip_1hr_in']) >= 0:
-				url = url + '&rainin=' . data['current_observation']['precip_1hr_in']
-			if (data['current_observation']['precip_today_in']) >= 0:
-				url = url + '&dailyrainin=' + data['current_observation']['precip_today_in']
-			if (data['current_observation']['pressure_in']) >= 0:
-				url = url + '&baromin=' + data['current_observation']['pressure_in']
-			if (data['current_observation']['dewpoint_f']) > -100:
-				url = url + '&dewptf=' + data['current_observation']['dewpoint_f']
-			if (substr(data['current_observation']['relative_humidity'], 0, 1)) != '-':
-				url = url + 'humidity=' + substr(data['current_observation']['relative_humidity'], 0, -1)
-			url = url + '&softwaretype=ebviaphpV0.3&action=updateraw'
+			if float(data['current_observation']['temp_f']) > -459:
+				dict_name_value_pair["tempf"] = data['current_observation']['temp_f'] 
+			if float(data['current_observation']['precip_1hr_in']) >= 0:
+				dict_name_value_pair["rainin"] = data['current_observation']['precip_1hr_in']
+			if float(data['current_observation']['precip_today_in']) >= 0:
+				dict_name_value_pair["dailyrainin"] = data['current_observation']['precip_today_in']
+			if float(data['current_observation']['pressure_in']) >= 0:
+				dict_name_value_pair["baromin"] = data['current_observation']['pressure_in']
+			if float(data['current_observation']['dewpoint_f']) > -100:
+				dict_name_value_pair["dewptf"] = data['current_observation']['dewpoint_f']
+			if (data['current_observation']['relative_humidity'])[:1] != '-':
+				dict_name_value_pair["humidity"] = data['current_observation']['relative_humidity'][: -1]
+			print (dict_name_value_pair)
+			url = 'http://www.pwsweather.com/pwsupdate/pwsupdate.php?' + urllib.parse.urlencode(dict_name_value_pair) 
 		
-			
+			print (url)
 			webUrl = urllib.request.urlopen(url)
 			pwsdata = webUrl.read()
 
